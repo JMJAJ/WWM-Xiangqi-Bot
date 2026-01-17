@@ -2,6 +2,16 @@
 
 An automated, high-performance Chinese Chess (Xiangqi) bot designed specifically for the Where Winds Meet (WWM) minigame. This application leverages computer vision for board state detection and the Fairy-Stockfish engine for optimal move generation.
 
+
+https://github.com/user-attachments/assets/8820a67a-c153-452e-9d93-10e1f04ff4e4
+
+
+## Acknowledgments
+
+This project is powered by the Fairy-Stockfish engine. Special thanks to the developers of the Fairy-Stockfish project for providing a powerful, open-source engine capable of handling Xiangqi variants.
+
+Engine Repository: https://github.com/fairy-stockfish/Fairy-Stockfish
+
 ## Project Overview
 
 This project provides a complete automation loop for the Xiangqi minigame. It captures the game screen, identifies piece positions using template matching, converts the board state into Forsyth-Edwards Notation (FEN), and executes moves through simulated mouse input.
@@ -52,7 +62,7 @@ The following parameters can be adjusted within the source code to match specifi
     *   Press '1' while hovering over the center of the top-left piece position.
     *   Press '2' while hovering over the center of the bottom-right piece position.
 3.  **Operation**:
-    *   **F5 (Scan)**: Performs a full refresh of the piece positions.
+    *   **F5 (Scan)**: Performs a full refresh of the piece positions. Shows "SCANNING BOARD" status during operation.
     *   **F9 (Auto)**: Starts the automated play loop. If no pieces are detected, an initial scan is triggered automatically.
     *   **F10 (Stop)**: Ceases all bot activity and releases input control.
 4.  **Always on Top**: Use the toggle button in the GUI to keep the bot interface visible over the game window.
@@ -65,7 +75,7 @@ The bot maps the Fairy-Stockfish UCI 1-10 rank system to a 0-9 array index. This
 ### Game End Logic
 Victory or defeat is determined through two parallel checks:
 1.  **Physical Presence**: Scanning for the existence of the Red and Black General templates.
-2.  **Legal Move Validation**: Interpreting engine feedback. If the engine returns no legal moves while the General is under threat, a checkmate is recorded.
+2.  **Legal Move Validation**: Interpreting engine feedback. If the engine returns no legal moves (Stalemate or Checkmate), the bot identifies the game as over.
 
 ## Disclaimer
 
