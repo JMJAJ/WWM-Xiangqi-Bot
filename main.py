@@ -14,10 +14,18 @@ import tkinter as tk
 import threading
 import sys
 import pygetwindow as gw
-import pyscreeze
-import shutil
+from tkinter import messagebox
 import subprocess
+import ctypes
 import re
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # === CONFIGURATION ===
 GAME_WINDOW_TITLE = "Where Winds Meet"
@@ -29,6 +37,7 @@ WAIT_FOR_OPPONENT = 1.5
 DIFF_THRESHOLD = 18 # Pixel difference to detect a move
 MAX_REPETITIONS = 2
 ENGINE_THINK_TIME = 2500  # Increased for much better endgame quality
+IMAGE_FOLDER = resource_path('images')
 
 # Piece mapping for internal tracking
 PIECE_MAP = {
@@ -54,6 +63,20 @@ FEN_PIECES = {
 
 bot_running = False
 bot_paused = False
+
+def run_as_admin():
+    """Checks for admin rights and restarts as admin if needed"""
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        is_admin = False
+
+    if not is_admin:
+        print("[SYSTEM] Requesting Administrator Rights...")
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, " ".join(sys.argv), None, 1
+        )
+        sys.exit()
 
 def focus_game_window():
     """Focus the game window"""
@@ -81,12 +104,24 @@ def game_click(x, y):
     pydirectinput.mouseUp()
     time.sleep(0.05)
 
+class RedirectText:
+    """Redirects sys.stdout (prints) to a Tkinter text widget"""
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+
+    def write(self, string):
+        self.text_widget.insert(tk.END, string)
+        self.text_widget.see(tk.END)
+
+    def flush(self):
+        pass
+
 # === FAIRY-STOCKFISH ENGINE ===
 class Engine:
     """Fairy-Stockfish engine wrapper with MultiPV support"""
     
     def __init__(self):
-        self.engine_path = os.path.join(os.path.dirname(__file__), "fairy-stockfish.exe")
+        self.engine_path = resource_path("fairy-stockfish.exe")
         self.process = None
         
     def start(self):
@@ -277,23 +312,26 @@ class XiangqiBot:
                     count += 1
         print(f"[OK] {count} piece templates loaded")
     
-    def calibrate(self):
-        """Calibrate game board coordinates"""
-        print("\n=== CALIBRATION ===")
-        print("1. Hover TOP-LEFT Piece (Rook) -> Press '1'")
+    def calibrate(self, status_callback=None):
+        """Calibrate using GUI status instead of console prints"""
+        def update(text):
+            if status_callback:
+                status_callback(text)
+            else:
+                print(text)
+
+        update("CALIBRATION: Hover TOP-LEFT Piece -> Press '1'")
         keyboard.wait('1')
         self.x1, self.y1 = pyautogui.position()
-        print(f"[OK] Top-Left: ({self.x1}, {self.y1})")
-        time.sleep(0.3)
         
-        print("2. Hover BOTTOM-RIGHT Piece (Rook) -> Press '2'")
+        update("CALIBRATION: Hover BOTTOM-RIGHT Piece -> Press '2'")
+        time.sleep(0.5) # Prevent accidental double-press
         keyboard.wait('2')
         self.x2, self.y2 = pyautogui.position()
-        print(f"[OK] Bottom-Right: ({self.x2}, {self.y2})")
         
         self.cell_w = (self.x2 - self.x1) / 8
         self.cell_h = (self.y2 - self.y1) / 9
-        print(f"[OK] Cell size calculated: {self.cell_w:.1f}x{self.cell_h:.1f}px")
+        update("CALIBRATION COMPLETE!")
     
     def get_cell_center(self, col, row):
         x = self.x1 + col * self.cell_w
@@ -450,6 +488,10 @@ class GUI:
         
         self.stop_btn = tk.Button(btn_frame, text="STOP (F10)", command=self.stop_bot, width=12, bg='#c62828', fg='white', state=tk.DISABLED)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
+
+        self.log_box = tk.Text(self.root, height=4, bg='#000', fg='#0f0', font=('Consolas', 8))
+        self.log_box.pack(fill=tk.X, padx=10, pady=5)
+        sys.stdout = RedirectText(self.log_box)
         
         keyboard.add_hotkey('f5', self.do_scan)
         keyboard.add_hotkey('f9', self.toggle_auto)
@@ -517,6 +559,10 @@ class GUI:
         self.play_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
         self.status.config(text="STOPPED", fg='#ffff00')
+ 
+    def log(self, message):
+        self.log_box.insert(tk.END, message + "\n")
+        self.log_box.see(tk.END)
 
     def toggle_topmost(self):
         """Toggle the window staying on top of others"""
@@ -590,17 +636,32 @@ class GUI:
                         self.draw_board()
                         our_turn = True
             except Exception as e:
-                print(f"Loop Error: {e}")
-                time.sleep(1)
+                messagebox.showerror("Bot Error", f"An error occurred: {str(e)}")
+                self.stop_bot()
 
 def main():
+    run_as_admin()
+    
+    def resource_path(relative_path):
+        try:
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, relative_path)
+
     bot = XiangqiBot()
-    if focus_game_window():
-        bot.calibrate()
-        gui = GUI(bot)
-        gui.root.mainloop()
-    else:
-        print("Could not find game window. Please open the game and try again.")
+    bot.engine.engine_path = resource_path("fairy-stockfish.exe")
+
+    gui = GUI(bot)
+    
+    def start_calibration():
+        bot.calibrate(status_callback=lambda t: gui.status.config(text=t, fg='#ffff00'))
+        gui.status.config(text="READY", fg='#00ff00')
+        gui.draw_board()
+
+    gui.root.after(1000, lambda: threading.Thread(target=start_calibration, daemon=True).start())
+    
+    gui.root.mainloop()
 
 if __name__ == "__main__":
     main()
