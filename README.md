@@ -39,7 +39,7 @@ The application is built on a modular Python architecture:
 
 ### Prerequisites
 *   Python 3.10 or higher.
-*   Fairy-Stockfish binary (fairy-stockfish.exe) placed in the root directory.
+*   Fairy-Stockfish binary ([fairy-stockfish.exe](https://github.com/fairy-stockfish/Fairy-Stockfish/releases/tag/fairy_sf_14)) placed in the root directory.
 *   A folder named 'images' containing PNG templates for all 14 piece types.
 
 ### Required Dependencies
