@@ -3,7 +3,7 @@ __pycache__/
 debug_cells/
 images_og/
 crop_images.py
-debuge_board_scan.png
+debug_board_scan.png
 fairy-stockfish.exe
 main_backup.py
 paths.txt
