@@ -8,3 +8,6 @@ fairy-stockfish.exe
 main_backup.py
 paths.txt
 setup.py
+build/
+dist/
+*.spec
